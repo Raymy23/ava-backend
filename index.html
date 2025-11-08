@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ava Chat App (Web App)</title>
+    <style>
+        /* --- 1. ZÁKLADNÍ RESPONZIVITA A PROMĚNNÉ --- */
+        :root {
+            /* ZMĚNA: Barva pozadí chatu na #363534 */
+            --bg-barva: #363534; 
+            --liss-bubble-barva: #FCE4EC; 
+            --liss-text-barva: #000000;
+            --user-bubble-barva: #AFEEEE; 
+            --user-text-barva: #000000;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5; 
+        }
+
+        .chat-container {
+            width: 100%; 
+            height: 100vh; 
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-barva); 
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- 2. STYLOVÁNÍ ZPRÁV --- */
+        #chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-barva); 
+        }
+
+        .message-bubble {
+            margin-bottom: 12px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            font-size: 14px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            clear: both; 
+        }
+        .user-message {
+            background-color: var(--user-bubble-barva); 
+            color: var(--user-text-barva);
+            align-self: flex-end;
+            margin-left: 20%;
+        }
+        .liss-message {
+            background-color: var(--liss-bubble-barva); 
+            color: var(--liss-text-barva);
+            align-self: flex-start;
+            margin-right: 20%;
+        }
+
+        /* --- 3. SMART SAVE PANEL --- */
+        #save-prompt-area {
+            background-color: #FFF9C4;
+            padding: 10px;
+            border-top: 1px solid #FFE082;
+            display: none;
+            flex-direction: column;
+            font-size: 14px;
+        }
+        #save-prompt-area button {
+            margin-top: 5px;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #save-yes {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #save-no {
+            background-color: #f44336;
+            color: white;
+            margin-left: 10px;
+        }
+
+        /* --- 4. OVLÁDACÍ PRVKY A VSTUP --- */
+        .chat-input-area {
+            padding: 10px;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            border-top: 1px solid #ccc;
+        }
+        #message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        #send-button {
+            padding: 10px 15px;
+            background-color: #4CAF50; 
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #controls-bar {
+            padding: 10px 15px 0 15px;
+            background-color: #fff;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div id="controls-bar">
+            <div>
+                <input type="checkbox" id="tts-toggle" checked>
+                <label for="tts-toggle">Zapnout TTS (Hlas)</label>
+            </div>
+            <div id="status">Stav: 🟢 Připojeno</div>
+        </div>
+        
+        <div id="chat-messages">
+            </div>
+
+        <div id="save-prompt-area">
+            <span id="save-prompt-text"></span>
+            <div>
+                <button id="save-yes">Ano, uložit</button>
+                <button id="save-no">Ne, děkuji</button>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="message-input" placeholder="Napiš zprávu nebo /save...">
+            <button id="send-button">Odeslat</button>
+        </div>
+    </div>
+
+    <script>
+        
+        window.onload = function() {
+        
+            // --- API ADRESY ---
+            const CHAT_API_URL = 'https://ava-backend-service.onrender.com/api/chat';
+            const ANALYZE_API_URL = 'https://ava-backend-service.onrender.com/api/analyze';
+            
+            // --- GLOBÁLNÍ DOM ELEMENTY ---
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            const chatMessages = document.getElementById('chat-messages');
+            const ttsToggle = document.getElementById('tts-toggle');
+            const statusDiv = document.getElementById('status');
+            
+            const savePromptArea = document.getElementById('save-prompt-area');
+            const savePromptText = document.getElementById('save-prompt-text');
+            const saveYesButton = document.getElementById('save-yes');
+            const saveNoButton = document.getElementById('save-no');
+            
+            let currentFactToSave = ''; 
+            let lastUserMessage = '';
+            
+            // --- HLAVNÍ CHAT LOGIKA ---
+
+            function addMessage(message, isLiss, isSystem = false) {
+                const bubble = document.createElement('div');
+                bubble.classList.add('message-bubble');
+                
+                if (isSystem) {
+                    bubble.classList.add('liss-message');
+                    bubble.style.opacity = 0.7; 
+                } else if (isLiss) {
+                    bubble.classList.add('liss-message');
+                } else {
+                    bubble.classList.add('user-message');
+                }
+                
+                bubble.innerHTML = message.replace(/\n/g, '<br>');
+                chatMessages.appendChild(bubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            function playAudio(base64Audio) {
+                if (base64Audio) {
+                    const audio = new Audio("data:audio/mp3;base64," + base64Audio);
+                    audio.play().catch(e => console.error("Chyba přehrávání audio:", e));
+                }
+            }
+
+            async function saveFactConfirmed() {
+                if (!currentFactToSave) return;
+                
+                savePromptArea.style.display = 'none';
+                sendButton.disabled = true;
+
+                const command = `/save ${currentFactToSave}`;
+                
+                try {
+                     const response = await fetch(CHAT_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: command,
+                            tts_enabled: false
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    // Krok 1: Zobrazit potvrzení uložení
+                    addMessage(data.text, true, true); 
+                    currentFactToSave = '';
+                    
+                    // Krok 2: Automaticky spustit běžný chat s PŮVODNÍ ZPRÁVOU
+                    sendRegularMessage(lastUserMessage);
+
+                } catch (error) {
+                    addMessage("Ava (Chyba): Selhalo potvrzení uložení. Zkuste to ručně pomocí /save.", true, true);
+                    sendButton.disabled = false;
+                }
+            }
+            
+            async function checkAndPromptSave(userMessage) {
+                try {
+                    const response = await fetch(ANALYZE_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: userMessage })
+                    });
+
+                    const analysis = await response.json();
+
+                    if (analysis.should_save) {
+                        currentFactToSave = analysis.extracted_fact;
+                        savePromptText.textContent = `Ava si myslí, že by si měla zapamatovat: "${analysis.extracted_fact}". Chcete to uložit?`;
+                        savePromptArea.style.display = 'flex';
+                        sendButton.disabled = true; 
+                    } else {
+                        sendRegularMessage(userMessage);
+                    }
+
+                } catch (error) {
+                     console.error('Chyba analýzy faktů:', error);
+                     sendRegularMessage(userMessage);
+                }
+            }
+
+            async function sendRegularMessage(message) {
+                try {
+                    const response = await fetch(CHAT_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: message,
+                            tts_enabled: ttsToggle.checked 
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Chyba serveru: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    
+                    const isSystemMessage = data.text.includes("(Paměť):");
+                    addMessage(data.text, true, isSystemMessage); 
+
+                    if (ttsToggle.checked && data.audio_data) {
+                        playAudio(data.audio_data);
+                    }
+
+                    statusDiv.textContent = "Stav: 🟢 Připojeno";
+
+                } catch (error) {
+                    console.error('Došlo k chybě:', error);
+                    addMessage("Ava (Chyba): Omlouvám se, ale došlo k chybě v komunikaci se serverem.", true, true);
+                    statusDiv.textContent = "Stav: 🔴 Chyba";
+                } finally {
+                    if (savePromptArea.style.display !== 'flex') {
+                        sendButton.disabled = false;
+                        messageInput.focus();
+                    }
+                }
+            }
+
+            async function sendMessage() {
+                const userMessage = messageInput.value.trim();
+                if (!userMessage) return;
+                
+                // ULOŽENÍ POSLEDNÍ ZPRÁVY
+                lastUserMessage = userMessage;
+                
+                addMessage(userMessage, false);
+                messageInput.value = '';
+                
+                statusDiv.textContent = "Stav: 🟡 Zpracovávám...";
+
+                if (userMessage.startsWith("/save ")) {
+                     sendButton.disabled = true;
+                     sendRegularMessage(userMessage);
+                } else {
+                    checkAndPromptSave(userMessage);
+                }
+            }
+            
+            // --- PŘIPOJENÍ VŠECH LISTENERŮ ---
+            
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // Perzistence TTS
+            ttsToggle.addEventListener('change', () => {
+                localStorage.setItem('tts-enabled', ttsToggle.checked.toString());
+            });
+
+            // Smart Save
+            saveYesButton.addEventListener('click', saveFactConfirmed);
+            saveNoButton.addEventListener('click', () => {
+                savePromptArea.style.display = 'none';
+                currentFactToSave = '';
+                sendButton.disabled = false;
+                // PO PŘESKOČENÍ ANALÝZY SE PŘEJDE PŘÍMO DO CHATU
+                sendRegularMessage(lastUserMessage); 
+            });
+            
+            // --- INICIALIZACE STRÁNKY ---
+            
+            // Načtení TTS stavu
+            const storedTts = localStorage.getItem('tts-enabled'); 
+            if (storedTts !== null) {
+                ttsToggle.checked = (storedTts === 'true');
+            } else {
+                localStorage.setItem('tts-enabled', ttsToggle.checked.toString());
+            }
+            
+            console.log("Front-end načten. Back-end musí běžet na portu 5000.");
+        };
+
+    </script>
+</body>
+</html>
