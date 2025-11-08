@@ -9,7 +9,7 @@ import time
 # Externí knihovny
 import numpy as np 
 import requests 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory # Zahrnuje send_from_directory
 from flask_cors import CORS
 
 # Externí knihovny pro API
@@ -22,15 +22,14 @@ chat = None
 MODEL_NAME = 'gemini-2.5-flash'
 GEMINI_EMBEDDING_MODEL = 'text-embedding-004' 
 MEMORY_FILE = 'ava_memory.json'
-LISS_MEMORY = [] 
+LISS_MEMORY = [] # Interní název pro paměť (může zůstat LISS_MEMORY)
 
 LOG_FILE = 'ava_log.txt'
 eleven_key = None 
 VOICE_ID = "2Lb1en5ujrODDIqmp7F3" 
 TTS_API_URL = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
 
-# OPRAVA: Definování absolutní cesty k adresáři, kde je tento skript
-# To je mnohem spolehlivější než os.getcwd()
+# OPRAVA: Definování absolutní cesty k adresáři
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 AVA_PERSONA = (
@@ -41,17 +40,18 @@ AVA_PERSONA = (
     "informace z paměti využila přirozeně, ale neotravně. Vždy se drž své role."
 )
 
-# --- FUNKCE PRO ZÁPIS LOGU (beze změny) ---
+# --- FUNKCE PRO ZÁPIS LOGU (Vždy PŘIDÁVÁ) ---
 def zapis_log(zprava):
     global eleven_key 
     cas = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
     log_zprava = f"{cas} {zprava}"
     try:
+        # Tato funkce nyní VŽDY jen připojuje ('a')
         with open(LOG_FILE, 'a', encoding='utf-8') as f:
             f.write(log_zprava + '\n')
     except Exception:
         pass 
-    print(log_zprava)
+    print(log_zprava) # Vždy tiskneme do konzole
 
 
 # --- FUNKCE PRO SMART SAVE (beze změny) ---
@@ -243,13 +243,14 @@ def ziskat_odpoved_liss(dotaz: str) -> str:
         return f"Došlo k chybě při komunikaci s Gemini: {e}"
 
 
-# --- INICIALIZAČNÍ FUNKCE (beze změny) ---
+# --- INICIALIZAČNÍ FUNKCE (OPRAVENO PŘEPISOVÁNÍ LOGU) ---
 def inicializovat_aplikaci():
     global client, chat, eleven_key
 
-    # Přepisování logu
+    # KROK 1: PŘEPSÁNÍ LOGU PŘI STARTU
     start_message = f"--- START APLIKACE AVA ({datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}) ---"
     try:
+        # Použijeme 'w' (write) pro přepsání souboru
         with open(LOG_FILE, 'w', encoding='utf-8') as f:
             f.write(start_message + '\n')
     except Exception:
@@ -259,12 +260,14 @@ def inicializovat_aplikaci():
     
     zapis_log("Zahajuji inicializaci API služeb pro Back-end...")
     
+    # KROK 2: Kontrola ElevenLabs Klíče
     eleven_key = os.environ.get("ELEVEN_API_KEY")
     if eleven_key:
         zapis_log("ElevenLabs API klíč nalezen.")
     else:
         zapis_log("Upozornění: Proměnná ELEVEN_API_KEY není nastavena. Hlasový výstup nebude funkční.")
 
+    # KROK 3: Inicializace Gemini
     try:
         if not os.environ.get("GEMINI_API_KEY"):
              zapis_log("Chyba: Proměnná GEMINI_API_KEY není nastavena. AI nebude funkční.")
