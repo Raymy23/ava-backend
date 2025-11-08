@@ -1,0 +1,15 @@
+--- START APLIKACE AVA (2025-11-08 03:47:06) ---
+[2025-11-08 03:47:06] Zahajuji inicializaci API služeb pro Back-end...
+[2025-11-08 03:47:06] ElevenLabs API klíč nalezen.
+[2025-11-08 03:47:07] Načteno 7 faktů z paměti.
+[2025-11-08 03:47:07] Gemini klient a krátkodobá paměť (Ava session) inicializovány.
+[2025-11-08 03:47:22] Nalezena relevantní fakta: Žádná.
+[2025-11-08 03:47:23] Odpověď z Gemini API úspěšně přijata.
+[2025-11-08 03:47:31] Nalezena relevantní fakta: Žádná.
+[2025-11-08 03:47:33] Odpověď z Gemini API úspěšně přijata.
+[2025-11-08 03:52:07] Vytvářím embedding pro nový fakt: 'Uživatel se jmenuje Kuba.'
+[2025-11-08 03:52:07] Paměť uložena, celkem 8 faktů.
+[2025-11-08 03:52:07] Nalezena relevantní fakta (max. podobnost > 0.55).
+[2025-11-08 03:52:09] Odpověď z Gemini API úspěšně přijata.
+[2025-11-08 03:52:22] Nalezena relevantní fakta: Žádná.
+[2025-11-08 03:52:22] Odpověď z Gemini API úspěšně přijata.
